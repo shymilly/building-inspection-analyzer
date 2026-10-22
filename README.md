@@ -36,22 +36,25 @@
 ### 2.2. Единственный содержательный результат: отчёт № 13
 <img width="815" height="318" alt="image" src="https://github.com/user-attachments/assets/7981065a-a200-48f4-a264-a7025354304c" />
 Файл `a5329ff4682f.pdf`, приоритет **КРИТИЧЕСКОЕ**, сообщение «Обнаружена угроза обрушения!».
+
+
 ---
-Сравнительная характеристика данных (проанализированных сервисом и имеющихся в отчете на самом деле):
-##1 Конструкция: Фундамент##
+###Сравнительная характеристика данных (проанализированных сервисом и имеющихся в отчете на самом деле):
+##1 Конструкция: Фундамент
+
 <img width="1783" height="658" alt="image" src="https://github.com/user-attachments/assets/7b593b04-3778-4b81-bb35-dc20786b5bab" />
 <img width="673" height="176" alt="image" src="https://github.com/user-attachments/assets/e9434f32-dcad-4070-9ba7-909de8458246" />
 
 Противоречия: в отчете говорится об ограниченной работоспособности, сервис характеризовал конструкцию как аварийную, также приведя неверные доводы.
 
-##2 Конструкция: Стена и панели##
+##2 Конструкция: Стена и панели
 <img width="1755" height="645" alt="image" src="https://github.com/user-attachments/assets/2f2f95d5-4227-4d1f-a4ac-18d03ff126c2" />
 <img width="638" height="271" alt="image" src="https://github.com/user-attachments/assets/87d46a2d-70b9-4e78-ac78-5c0bc7f4744e" />
 <img width="640" height="156" alt="image" src="https://github.com/user-attachments/assets/ec184071-0823-43d0-8967-42e5005951ec" />
 
 Противоречия: путает причины с дефектами
 
-##3 Конструкция: перекрытия##
+##3 Конструкция: перекрытия
 <img width="780" height="450" alt="image" src="https://github.com/user-attachments/assets/1cba5f4f-de50-4997-aa0b-77da189827d5" />
 <img width="639" height="577" alt="image" src="https://github.com/user-attachments/assets/6315c2c1-8999-44e4-a592-cfa8be0b8a15" />
 
