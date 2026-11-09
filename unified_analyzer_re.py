@@ -1,4 +1,7 @@
 import re
+import os
+import json
+from ollama_backend import OllamaLLMEngine
 import time
 import logging
 from pathlib import Path
@@ -498,7 +501,10 @@ class LLMEngine:
 class DescriptionGenerator:
     """Генератор описаний для всех статусов с использованием LLM"""
     
-    def __init__(self, llm_engine: Optional[LLMEngine] = None):
+    def __init__(
+        self,
+        llm_engine: Optional[Union[LLMEngine, OllamaLLMEngine]] = None,
+    ):
         self.llm = llm_engine
         self.template_count = 0
         self.llm_count = 0
@@ -511,33 +517,33 @@ class DescriptionGenerator:
             'выветриван', 'замачиван', 'каверн'
         ]
     
-    def generate(self, construct: Dict[str, Any], use_llm: bool = False, context: str = "") -> Tuple[str, str]:
-        """Генерация описания - ПЫТАЕМСЯ ИСПОЛЬЗОВАТЬ LLM ДЛЯ ВСЕХ СТАТУСОВ"""
-        
-        construct_name = construct.get('Конструкция', 'неизвестно')
-        status = construct.get('Статус', 'НЕ ОПРЕДЕЛЕНО')
-        citation = construct.get('Цитата', '')
-        division = construct.get('Разделение', 'не указана')
-        
-        # ПЫТАЕМСЯ ИСПОЛЬЗОВАТЬ LLM ДЛЯ ВСЕХ СТАТУСОВ, ЕСЛИ ОН ДОСТУПЕН
+    def generate(
+        self,
+        construct: Dict[str, Any],
+        use_llm: bool = False,
+        context: str = "",
+    ) -> Tuple[str, str]:
+        name = construct.get("Конструкция", "неизвестно")
+        status = construct.get("Статус", "НЕ ОПРЕДЕЛЕНО")
+        citation = construct.get("Цитата", "")
+        division = construct.get("Разделение", "не указана")
+
         if use_llm and self.llm and self.llm.loaded:
-            # Сначала проверяем, есть ли дефекты в цитате
-            defects = self._extract_defects_from_citation(citation)
-            if defects:
-                # Если есть дефекты - используем их
-                emoji = self._get_emoji(status)
-                return f"{emoji} {construct_name} ({division}): {defects[:150]}", 'template'
-            
-            # Пробуем LLM для любого статуса
-            description = self._generate_with_llm(construct_name, status, citation, division, context)
+            description = self._generate_with_llm(
+                name, status, citation, division, context
+            )
             if description:
                 self.llm_count += 1
-                return description, 'llm'
-        
-        # Если LLM не сработал - используем шаблон
+                return description, "llm"
+
         self.template_count += 1
-        description = self._generate_template(construct_name, status, citation, division)
-        return description, 'template'
+        if not citation.strip():
+            return "Недостаточно исходных данных для описания.", "unavailable"
+        # Цитата не подтверждает автоматически отсутствие дефектов или категорию.
+        return (
+            f"{name} ({division}). Фрагмент источника: {citation[:600]}",
+            "template",
+        )
 
     def _get_emoji(self, status: str) -> str:
         """Возвращает эмодзи для статуса"""
@@ -674,29 +680,30 @@ class DescriptionGenerator:
         return ""
 
     def _generate_with_llm(self, construct: str, status: str, citation: str, division: str, context: str) -> Optional[str]:
-        if not self.llm or not self.llm.loaded:
+        if not self.llm or not self.llm.loaded or not citation.strip():
             return None
-        
-        clean_citation = self._extract_defects_from_citation(citation)
-        if not clean_citation or len(clean_citation) < 10:
-            return None
-        
-        prompt = self._build_prompt(construct, status, clean_citation, division, context)
-        if not prompt:
-            return None
-        
+
+        facts = {
+            "construct": construct,
+            "legacy_status_unverified": status,
+            "location": division,
+            "source_quote": citation,
+        }
+        # context сохранён в интерфейсе; факты других отчётов сюда не подмешиваем.
+        prompt = (
+            "Составь 1–2 предложения только по source_quote. "
+            "legacy_status_unverified — непроверенная оценка старой программы; "
+            "не используй её как доказательство. "
+            "Не назначай новую категорию и не придумывай ремонтные решения. "
+            "Если цитата содержит лишь методику или расчёт нагрузки, "
+            "скажи, что данных для описания фактического состояния недостаточно.\n"
+            + json.dumps(facts, ensure_ascii=False)
+        )
+
         try:
-            response = self.llm.generate(prompt)
-            if response:
-                # Проверяем, что ответ не содержит мусора
-                if re.search(r'(?:Заказчик|Вопрос|Ответ|Обновление|Объяснение)', response, re.IGNORECASE):
-                    logger.warning(f"LLM вернул мусор: {response[:50]}...")
-                    return None
-                emoji = self._get_emoji(status)
-                return f"{emoji} {response}"
-            return None
-        except Exception as e:
-            logger.error(f"Ошибка LLM: {e}")
+            return self.llm.generate(prompt)
+        except Exception as exc:
+            logger.warning("Описание не получено: %s", type(exc).__name__)
             return None
 
 
@@ -755,7 +762,7 @@ class ReportAnalyzer:
         use_llm: bool = True,
         use_gpu: bool = True,
         use_llm_for_limited: bool = False,
-        db_path: str = "data/reports.db"
+        db_path: str = "data/reports.db",
     ):
         self.use_llm = use_llm
         self.use_gpu = use_gpu
@@ -766,9 +773,15 @@ class ReportAnalyzer:
         self.citation_selector = CitationSelector()
         self.division_extractor = DivisionExtractor()
         
-        self.llm_engine = None
+        self.llm_engine: Optional[Union[LLMEngine, OllamaLLMEngine]] = None
+        provider = os.getenv("LLM_PROVIDER", "ollama")
         if self.use_llm:
-            self.llm_engine = LLMEngine(use_gpu=self.use_gpu)
+            if provider == "ollama":
+                self.llm_engine = OllamaLLMEngine()
+            elif provider == "transformers":
+                self.llm_engine = LLMEngine(use_gpu=self.use_gpu)
+            else:
+                raise ValueError(f"Неизвестный LLM_PROVIDER: {provider}")
         
         # Генератор описаний
         self.generator = DescriptionGenerator(self.llm_engine)

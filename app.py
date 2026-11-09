@@ -1,3 +1,4 @@
+from ollama_backend import LLMUnavailable
 import streamlit as st
 import pandas as pd
 import os
@@ -33,23 +34,21 @@ for dir_path in [DATA_DIR, REPORTS_DIR, SUMMARIES_DIR]:
 
 @st.cache_resource
 def get_analyzer():
-    """Создание и кэширование анализатора"""
-    use_gpu = torch.cuda.is_available()
-    print("1. Создаем analyzer...")
     analyzer = ReportAnalyzer(
         use_llm=True,
-        use_gpu=use_gpu,
-        use_llm_for_limited=True
+        use_gpu=False,  # Параметр старого backend; GPU Ollama он не отключает.
+        use_llm_for_limited=True,
     )
-    print("2. Analyzer создан, загружаем LLM...")
-    # Принудительно загружаем LLM
-    if analyzer.llm_engine:
-        print("3. Загружаем LLM engine...")
-        analyzer.llm_engine.load()
-        print("4. LLM engine загружен!")
-    print("5. Все готово!")
+    analyzer.llm_engine.load()
     return analyzer
 
+try:
+    analyzer = get_analyzer()
+except LLMUnavailable as exc:
+    st.error(str(exc))
+    st.info("Проверьте Ollama и наличие выбранной локальной модели.")
+    st.stop()
+    
 analyzer = get_analyzer()
 
 def clean_folder_name(name):
